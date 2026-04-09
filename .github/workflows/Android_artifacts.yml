@@ -7,7 +7,7 @@
 # Workflow for Android cross-compilation and test jobs.
 # The concurrency of this workflow is controlled by the caller's job.
 
-name: PkgCI Test Android
+name: PkgCI Build Android
 
 on:
   workflow_call:
