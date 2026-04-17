@@ -1,0 +1,60 @@
+name: Android IREE Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y cmake ninja-build python3
+
+    - name: Download Android NDK
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r28-linux.zip
+        unzip android-ndk-r28-linux.zip
+        echo "NDK=$PWD/android-ndk-r28" >> $GITHUB_ENV
+    - name: Configure build
+      run: |
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-33 \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -DIREE_BUILD_COMPILER=ON \
+          -DIREE_BUILD_SAMPLES=OFF \
+          -DIREE_BUILD_TESTS=ON \
+          -DIREE_ENABLE_LLD=ON \
+          -DIREE_TARGET_BACKEND_CUDA=OFF \
+          -DIREE_HAL_DRIVER_METAL_DEFAULT=OFF \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DIREE_TARGET_BACKEND_VULKAN_SPIRV=ON \
+          -DIREE_HAL_DRIVER_VULKAN=ON \
+          -DIREE_BUILD_BUNDLED_LLVM=OFF \
+          -DIREE_TARGET_BACKEND_LLVM_CPU=ON \
+          -DIREE_USE_SYSTEM_DEPS=ON \
+          -DLLVM_TARGETS_TO_BUILD="AArch64" \
+          -DIREE_TARGET_BACKEND_DEFAULTS=ON \
+          -DIREE_TARGET_BACKEND_LLVM_CPU=ON \
+          -DIREE_HAL_DRIVER_DEFAULTS=ON \
+          -DIREE_HAL_DRIVER_LOCAL_SYNC=OFF \
+          -DIREE_HAL_DRIVER_LOCAL_TASK=ON \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: |
+        cmake --build build -j2
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: iree-android-build
+        path: build/
