@@ -1,0 +1,121 @@
+# Android cross-compilation for IREE (FIXED)
+
+name: PkgCI Build compiler for Android
+
+on:
+  workflow_call:
+    inputs:
+      artifact_run_id:
+        type: string
+        default: ""
+      write-caches:
+        required: true
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        type: string
+        default: ""
+      write-caches:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  android_arm64:
+    runs-on: ubuntu-24.04
+
+    env:
+      PACKAGE_DOWNLOAD_DIR: ${{ github.workspace }}/.packages
+      VENV_DIR: ${{ github.workspace }}/.venv
+      GH_TOKEN: ${{ github.token }}
+      IREE_TARGET_BUILD_DIR: build-android-arm_64
+      CC: clang
+      CXX: clang++
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Init submodules
+        run: ./build_tools/scripts/git/update_runtime_submodules.sh
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2.14
+        with:
+          key: ${{ github.job }}
+          save: ${{ inputs.write-caches == '1' }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y ninja-build cmake unzip wget
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25b
+
+      # 🔥 FIX: expose correct NDK path
+      - name: Export NDK path
+        run: echo "NDK=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+
+      - name: Setup venv
+        run: |
+          ./build_tools/pkgci/setup_venv.py ${VENV_DIR} \
+            --artifact-path=${PACKAGE_DOWNLOAD_DIR} \
+            --fetch-gh-workflow=${{ inputs.artifact_run_id }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build for Android ARM64
+        env:
+          IREE_HOST_BIN_DIR: ${{ env.VENV_DIR }}/bin
+          IREE_READ_REMOTE_CCACHE: 0
+          IREE_WRITE_REMOTE_CCACHE: 0
+          IREE_READ_LOCAL_CCACHE: 1
+          IREE_WRITE_LOCAL_CCACHE: ${{ inputs.write-caches }}
+
+        run: |
+          echo "NDK path = $NDK"
+          ls $NDK/build/cmake/android.toolchain.cmake
+
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-33 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DIREE_BUILD_COMPILER=ON \
+            -DIREE_BUILD_SAMPLES=OFF \
+            -DIREE_BUILD_TESTS=ON \
+            -DIREE_ENABLE_LLD=ON \
+            -DIREE_TARGET_BACKEND_VULKAN_SPIRV=ON \
+            -DIREE_HAL_DRIVER_VULKAN=ON \
+            -DIREE_TARGET_BACKEND_LLVM_CPU=ON \
+            -DIREE_HAL_DRIVER_LOCAL_TASK=ON \
+            -DIREE_HAL_DRIVER_LOCAL_SYNC=OFF \
+            -DIREE_BUILD_BUNDLED_LLVM=OFF \
+            -DIREE_USE_SYSTEM_DEPS=ON \
+            -DLLVM_TARGETS_TO_BUILD=AArch64
+
+          cmake --build build -j$(nproc)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iree-android-binaries
+          path: |
+            build/install/
+            build/
+          retention-days: 7
