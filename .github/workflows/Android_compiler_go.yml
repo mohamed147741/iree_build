@@ -57,7 +57,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y ninja-build cmake unzip wget
+          sudo apt install -y ninja-build cmake unzip wget llvm 
+          git submodule update --init --depth 1
 
       # --- الخطوة الحاسمة لحل مشكلة 404 في venv ---
       - name: Download Remote Artifacts
