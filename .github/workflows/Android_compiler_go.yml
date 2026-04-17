@@ -112,7 +112,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DLLVM_ENABLE_PROJECTS="mlir" \
+            -DLLVM_BUILD_TOOLS=ON \
             -DIREE_BUILD_COMPILER=ON \
             -DIREE_BUILD_SAMPLES=OFF \
             -DIREE_BUILD_TESTS=ON \
