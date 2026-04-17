@@ -1,5 +1,4 @@
-# Android cross-compilation for IREE (FIXED)
-
+# Android cross-compilation for IREE (FIXED VERSION)
 name: PkgCI Build compiler for Android
 
 on:
@@ -60,12 +59,29 @@ jobs:
           sudo apt update
           sudo apt install -y ninja-build cmake unzip wget
 
+      # --- الخطوة الحاسمة لحل مشكلة 404 في venv ---
+      - name: Download Remote Artifacts
+        uses: actions/download-artifact@v4
+        if: ${{ inputs.artifact_run_id != '' }}
+        with:
+          name: linux_x86_64_release_packages
+          path: ${{ env.PACKAGE_DOWNLOAD_DIR }}
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Local Artifacts
+        uses: actions/download-artifact@v4
+        if: ${{ inputs.artifact_run_id == '' }}
+        with:
+          name: linux_x86_64_release_packages
+          path: ${{ env.PACKAGE_DOWNLOAD_DIR }}
+      # --------------------------------------------
+
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r25b
 
-      # 🔥 FIX: expose correct NDK path
       - name: Export NDK path
         run: echo "NDK=$ANDROID_NDK_HOME" >> $GITHUB_ENV
 
@@ -84,12 +100,11 @@ jobs:
           IREE_WRITE_REMOTE_CCACHE: 0
           IREE_READ_LOCAL_CCACHE: 1
           IREE_WRITE_LOCAL_CCACHE: ${{ inputs.write-caches }}
-
         run: |
           echo "NDK path = $NDK"
-          ls $NDK/build/cmake/android.toolchain.cmake
-
-          cmake -S . -B build -G Ninja \
+          
+          # تأكد من استخدام اسم المجلد الصحيح IREE_TARGET_BUILD_DIR
+          cmake -S . -B ${{ env.IREE_TARGET_BUILD_DIR }} -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-33 \
@@ -109,13 +124,14 @@ jobs:
             -DIREE_USE_SYSTEM_DEPS=ON \
             -DLLVM_TARGETS_TO_BUILD=AArch64
 
-          cmake --build build -j$(nproc)
+          cmake --build ${{ env.IREE_TARGET_BUILD_DIR }} -j$(nproc)
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: iree-android-binaries
           path: |
-            build/install/
-            build/
+            ${{ env.IREE_TARGET_BUILD_DIR }}/install/
+            ${{ env.IREE_TARGET_BUILD_DIR }}/
           retention-days: 7
+          
