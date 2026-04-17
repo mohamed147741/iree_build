@@ -121,8 +121,7 @@ jobs:
             -DIREE_TARGET_BACKEND_LLVM_CPU=ON \
             -DIREE_HAL_DRIVER_LOCAL_TASK=ON \
             -DIREE_HAL_DRIVER_LOCAL_SYNC=OFF \
-            -DIREE_BUILD_BUNDLED_LLVM=OFF \
-            -DIREE_USE_SYSTEM_DEPS=ON \
+            -DIREE_USE_SYSTEM_DEPS=OFF \
             -DLLVM_TARGETS_TO_BUILD=AArch64
 
           cmake --build ${{ env.IREE_TARGET_BUILD_DIR }} -j$(nproc)
