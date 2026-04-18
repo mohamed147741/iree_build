@@ -1,30 +1,4 @@
-#!/usr/bin/env bash
-# Copyright 2023 The IREE Authors
-#
-# Licensed under the Apache License v2.0 with LLVM Exceptions.
-# See https://llvm.org/LICENSE.txt for license information.
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-# This script illustrates how IREE can be built with various forms of LLVM
-# installations with the option -DIREE_BUILD_BUNDLED_LLVM=OFF set, disabling
-# a source dependency on the bundled LLVM submodule.
-#
-# Usage:
-#   byo_llvm.sh build_llvm && \
-#   byo_llvm.sh build_mlir && \
-#   byo_llvm.sh build_iree
-#
-# Additionally, to run tests:
-#   byo_llvm.sh test_iree
-#
-# This script has minimal configurability, which can be extended as needed. The
-# defaults should suffice for testing on CI. Different configurations are
-# possible (i.e. building MLIR bundled with LLVM vs standalone), and this
-# is just normal CMake package management options.
-#
-# Fully separating LLVM+LLD+CLANG from MLIR and from IREE enables maximum
-# flexibility for the cases where multiple teams are responsible for
-# different parts. Note that IREE often has a tight dependency on specific
 # MLIR commits, and the bundled submodule often carries patches and fixes
 # required for full functionality of all backends.
 
@@ -165,14 +139,22 @@ do_build_iree() {
   iree_install_dir="${IREE_BYOLLVM_INSTALL_DIR}/iree"
 
   cmake_options="$(print_iree_config)"
+  cmake_options="${cmake_options} -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake"
+  cmake_options="${cmake_options} -DANDROID_ABI=arm64-v8a"
+  cmake_options="${cmake_options} -DANDROID_PLATFORM=android-33"
+  cmake_options="${cmake_options} -DIREE_TARGET_BACKEND_VULKAN_SPIRV=ON"
+  cmake_options="${cmake_options} -DIREE_HAL_DRIVER_VULKAN=ON"
   cmake_options="${cmake_options} -DPython3_EXECUTABLE='$(which $python3_command)'"
   cmake_options="${cmake_options} -DIREE_BUILD_PYTHON_BINDINGS=ON"
+  cmake_options="${cmake_options} IREE_HAL_DRIVER_VULKAN_DEFAULT=ON"
+  cmake_options="${cmake_options} IREE_HAL_DRIVER_METAL=OFF"
   # Feel free to manually enable or disable any backend, for example
   #   -DIREE_TARGET_BACKEND_LLVM_CPU=OFF
   # Be aware though that several tests in IREE's own suite are currently
   # assuming that certain backends are enabled (#14034), so that may cause test
   # failures, but that's a test-only issue.
   cmake_options="${cmake_options} -DIREE_TARGET_BACKEND_DEFAULTS=OFF"
+  cmake_options="${cmake_options} -DIREE_BUILD_COMPILER=ON"
   cmake_options="${cmake_options} -DIREE_TARGET_BACKEND_LLVM_CPU=ON"
   cmake_options="${cmake_options} -DIREE_HAL_DRIVER_DEFAULTS=OFF"
   cmake_options="${cmake_options} -DIREE_HAL_DRIVER_LOCAL_SYNC=ON"
