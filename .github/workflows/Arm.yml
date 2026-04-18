@@ -45,18 +45,18 @@ jobs:
 
       - name: Build LLVM
         run: |
-          chmod +x build_tools/cmake/byo_llvm.sh
-          ./build_tools/cmake/byo_llvm.sh build_llvm
+          chmod +x build_tools/llvm/byo_llvm.sh
+          ./build_tools/llvm/byo_llvm.sh build_llvm
 
       - name: Build MLIR
         run: |
-          ./build_tools/cmake/byo_llvm.sh build_mlir
+          ./build_tools/llvm/byo_llvm.sh build_mlir
 
       - name: Build IREE
         run: |
           # ملاحظة: إذا كنت لا تبني للاندرويد فعلياً داخل عداء ARM، 
           # قد تحتاج لإزالة إعدادات NDK من ملف bash أو تعريف مسار NDK هنا.
-          ./build_tools/cmake/byo_llvm.sh build_iree
+          ./build_tools/llvm/byo_llvm.sh build_iree
 
       - name: Archive Build Artifacts
         uses: actions/upload-artifact@v4
@@ -66,4 +66,4 @@ jobs:
             ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/iree
             ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/llvm
             ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/mlir
-          retention-days: 5
+          retention-days: 60
