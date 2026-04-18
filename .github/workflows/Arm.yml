@@ -1,0 +1,69 @@
+name: Build IREE on ARM
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-arm:
+    # استخدام عداء ARM مخصص من GitHub إذا كان متاحاً، أو ubuntu-latest للتركيب العادي
+    runs-on: ubuntu-24.04-arm64 
+    
+    env:
+      LLVM_TARGETS_TO_BUILD: "AArch64" # تحسين البناء لمعمارية ARM فقط
+      IREE_BYOLLVM_BUILD_DIR: ${{ github.workspace }}/build
+      IREE_BYOLLVM_INSTALL_DIR: ${{ github.workspace }}/install
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true # مهم جداً لأن IREE يعتمد على submodules
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang lld ninja-build ccache python3-pip python3-setuptools \
+            cmake libpython3-dev
+          pip3 install --upgrade pip
+          # تثبيت متطلبات python الخاصة بـ MLIR إذا وجدت
+          if [ -f third_party/llvm-project/mlir/python/requirements.txt ]; then
+            pip3 install -r third_party/llvm-project/mlir/python/requirements.txt
+          fi
+
+      - name: Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-arm64-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-arm64-ccache-
+
+      - name: Build LLVM
+        run: |
+          chmod +x build_tools/cmake/byo_llvm.sh
+          ./build_tools/cmake/byo_llvm.sh build_llvm
+
+      - name: Build MLIR
+        run: |
+          ./build_tools/cmake/byo_llvm.sh build_mlir
+
+      - name: Build IREE
+        run: |
+          # ملاحظة: إذا كنت لا تبني للاندرويد فعلياً داخل عداء ARM، 
+          # قد تحتاج لإزالة إعدادات NDK من ملف bash أو تعريف مسار NDK هنا.
+          ./build_tools/cmake/byo_llvm.sh build_iree
+
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iree-arm-build-package
+          path: |
+            ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/iree
+            ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/llvm
+            ${{ env.IREE_BYOLLVM_INSTALL_DIR }}/mlir
+          retention-days: 5
